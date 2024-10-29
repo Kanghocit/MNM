@@ -45,7 +45,7 @@ const createPost = async (req, res) => {
   }
 };
 
-//get post
+// Get post
 const getPost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);

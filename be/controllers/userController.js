@@ -124,7 +124,8 @@ const followUnFollowUser = async (req, res) => {
   }
 };
 
-// update
+
+//update
 const updateUser = async (req, res) => {
   const { name, email, username, password, bio } = req.body;
   let { profilePicture } = req.body;
@@ -183,7 +184,7 @@ const updateUser = async (req, res) => {
   }
 };
 
-//get user profile
+//Get user profile
 
 const getUserProfile = async (req, res) => {
   // fetch user profile either with username or userId
