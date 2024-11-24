@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import generateTokenAndSetCookie from "../utils/helpers/genarateTokenAndSetCookie.js";
 import { v2 as cloudinary } from "cloudinary";
 import mongoose from "mongoose";
+import { verifyGoogleToken } from "../utils/google.js";
 
 //sign up
 const signupUser = async (req, res) => {
@@ -71,6 +72,34 @@ const loginUser = async (req, res) => {
     console.log("Error in loginUser", err.message);
   }
 };
+//google-login
+const googleLogin = async (req, res) => {
+  const { token } = req.body;
+
+  try {
+    const googleUser = await verifyGoogleToken(token);
+    const { email, name, username, googleId, picture } = googleUser;
+    let user = await User.findOne({ googleId });
+    if (!user) {
+      user = new User({
+        email,
+        name,
+        username,
+        googleId,
+        profilePicture: picture,
+      });
+
+      await user.save();
+    }
+
+    generateTokenAndSetCookie(user._id, res);
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Google Login failed" });
+  }
+};
 
 // logout
 const logoutUser = async (req, res) => {
@@ -89,6 +118,7 @@ const followUnFollowUser = async (req, res) => {
     const { id } = req.params;
     const userToModify = await User.findById(id);
     const currentUser = await User.findById(req.user._id);
+    console.log("Khangdz", currentUser);
 
     if (!userToModify || !currentUser) {
       return res.status(400).json({ error: "User not found" });
@@ -105,17 +135,17 @@ const followUnFollowUser = async (req, res) => {
     //     currentUser.followings = [];
     // }
 
-    const isFollowing = currentUser.followings.includes(id);
+    const isFollowing = currentUser.following.includes(id);
 
     if (isFollowing) {
       // Unfollow user
       await User.findByIdAndUpdate(id, { $pull: { followers: req.user._id } });
-      await User.findByIdAndUpdate(req.user._id, { $pull: { followings: id } });
+      await User.findByIdAndUpdate(req.user._id, { $pull: { following: id } });
       res.status(200).json({ message: "User unfollowed successfully" });
     } else {
       // Follow user
       await User.findByIdAndUpdate(id, { $push: { followers: req.user._id } });
-      await User.findByIdAndUpdate(req.user._id, { $push: { followings: id } });
+      await User.findByIdAndUpdate(req.user._id, { $push: { following: id } });
       res.status(200).json({ message: "User followed successfully" });
     }
   } catch (err) {
@@ -124,8 +154,7 @@ const followUnFollowUser = async (req, res) => {
   }
 };
 
-
-//update
+// update
 const updateUser = async (req, res) => {
   const { name, email, username, password, bio } = req.body;
   let { profilePicture } = req.body;
@@ -184,7 +213,7 @@ const updateUser = async (req, res) => {
   }
 };
 
-//Get user profile
+//get user profile
 
 const getUserProfile = async (req, res) => {
   // fetch user profile either with username or userId
@@ -210,6 +239,47 @@ const getUserProfile = async (req, res) => {
     console.log("Can't be get your userProfile!!", err);
   }
 };
+const getSuggestedUsers = async (req, res) => {
+  try {
+    // exclude the current user from suggested users array and exclude users that current user is already following
+    const userId = req.user._id;
+
+    const usersFollowedByYou = await User.findById(userId).select("following");
+
+    const users = await User.aggregate([
+      {
+        $match: {
+          _id: { $ne: userId },
+        },
+      },
+      {
+        $sample: { size: 10 },
+      },
+    ]);
+    const filteredUsers = users.filter(
+      (user) => !usersFollowedByYou.following.includes(user._id)
+    );
+    const suggestedUsers = filteredUsers.slice(0, 4);
+
+    suggestedUsers.forEach((user) => (user.password = null));
+
+    res.status(200).json(suggestedUsers);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+const getAllUser = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    console.log("khangdz", userId);
+
+    const users = await User.find({ _id: { $ne: userId } }).select("-password");
+
+    res.status(200).json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
 export {
   signupUser,
@@ -218,4 +288,7 @@ export {
   followUnFollowUser,
   updateUser,
   getUserProfile,
+  getSuggestedUsers,
+  getAllUser,
+  googleLogin,
 };
