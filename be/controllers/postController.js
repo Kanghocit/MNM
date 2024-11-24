@@ -45,7 +45,7 @@ const createPost = async (req, res) => {
   }
 };
 
-//get post
+
 const getPost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -165,6 +165,7 @@ const deleteReplyPost = async(req, res) => {
 const getFeedPosts = async (req, res) => {
   try {
     const userId = req.user._id;
+
     
     const user = await User.findById(userId);
 
@@ -172,6 +173,9 @@ const getFeedPosts = async (req, res) => {
       return res.status(404).json({ message: "User not found!" });
     }
     const following = user.following;
+
+    const user = await User.findById(userId);
+
 
     const feedPosts = await Post.find({ postedBy: { $in: following } }).sort({
       createdAt: -1,
